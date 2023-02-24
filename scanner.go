@@ -142,11 +142,12 @@ const (
 // being scanned. If the parser is inside a nested value
 // the parseState describes the nested state, outermost at entry 0.
 const (
-	parseObjectKey   = iota // parsing object key (before colon)
-	parseObjectValue        // parsing object value (after colon)
-	parseIdentifier         // parsing identifier
-	parseType               // parsing type
-	parseValueName          // parsing value name
+	parseObjectKey        = iota // parsing object key (before colon)
+	parseObjectValue             // parsing object value (after colon)
+	parseIdentifier              // parsing identifier
+	parseType                    // parsing type
+	parseValueName               // parsing value name
+	parseSequenceOfObject        // parsing sequence
 )
 
 // This limits the max nesting depth to prevent stack overflow.
@@ -281,6 +282,16 @@ func stateEndValue(s *scanner, c byte) int {
 	}
 	ps := s.parseState[n-1]
 	switch ps {
+	case parseSequenceOfObject:
+		if c == '}' {
+			s.popParseState()
+			return scanEndObject
+		}
+		if isDigit(c) {
+			s.step = stateBeginValue
+			return scanBeginLiteral
+		}
+		return s.error(c, "after sequence of object")
 	case parseIdentifier:
 		s.popParseState()
 		if c == ':' {
@@ -416,6 +427,16 @@ func stateBeginObjectKey(s *scanner, c byte) int {
 	}
 	if isAlpha(c) {
 		s.step = stateInObjectKey
+		return scanBeginLiteral
+	}
+	if isDigit(c) {
+		// asn1 special SEQUENCE OF OBJECT IDENTIFIER
+		// e.g. { 1 2 3 4 5 }
+		// we need to manipulate the parse state to get the correct result
+		//
+		n := len(s.parseState)
+		s.parseState[n-1] = parseSequenceOfObject
+		s.step = stateBeginValue
 		return scanBeginLiteral
 	}
 	return s.error(c, "looking for beginning of object key string")
