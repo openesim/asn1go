@@ -240,6 +240,9 @@ func stateBeginValue(s *scanner, c byte) int {
 	case '}':
 		s.popParseState()
 		return scanEndObject
+	case ':':
+		s.step = stateBeginValue
+		return scanObjectValue
 	case '"': // beginning of octet string
 		s.step = stateInOctetString
 		return scanBeginLiteral
@@ -391,6 +394,12 @@ func stateBeginObjectKeyOrEmpty(s *scanner, c byte) int {
 		n := len(s.parseState)
 		s.parseState[n-1] = parseObjectValue
 		return stateEndValue(s, c)
+	}
+	if c == '{' { //anonymous object - strange but valid
+		n := len(s.parseState)
+		s.parseState[n-1] = parseObjectValue
+		s.step = stateBeginObjectKeyOrEmpty
+		return s.pushParseState(c, parseObjectKey, scanBeginObject)
 	}
 	return stateBeginObjectKey(s, c)
 }
@@ -563,7 +572,7 @@ func stateBeginTop(s *scanner, c byte) int {
 		s.step = stateBeginName
 		return s.pushParseState(c, parseIdentifier, scanBeginIdentifierOrType)
 	}
-	return s.error(c, "looking for beginning of value")
+	return s.error(c, "looking for beginning of top value")
 }
 
 // stateEndTop is the state after finishing the top-level value,
