@@ -4,8 +4,8 @@
 <h1 align="center">asn1go - Decoding ASN1 library</h1>
 </p>
 
-This library can validate and decoding ASN1 value annotation files (used by eSIM Profile).
-And since we like ASN1 as much as all other devs, the library can only do that and nothing more.
+This library can validate and decoding ASN1 value annotation files (used by eSIM Profiles).
+And because we like ASN1 as much as any other developer, the library can only do this and nothing more.
 
 # Features
 - [ ] Scan ASN1 value annotation files
