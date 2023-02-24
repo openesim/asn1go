@@ -83,6 +83,10 @@ type scanner struct {
 	// total bytes consumed, updated by decoder.Decode (and deliberately
 	// not set to zero by scan.reset)
 	bytes int64
+
+	// Allow multiple top-level values in the input
+	// default is true
+	allowMultipleTopValues bool
 }
 
 var scannerPool = sync.Pool{
@@ -95,6 +99,7 @@ func newScanner() *scanner {
 	scan := scannerPool.Get().(*scanner)
 	// scan.reset by design doesn't set bytes to zero
 	scan.bytes = 0
+	scan.allowMultipleTopValues = true
 	scan.reset()
 	return scan
 }
@@ -580,8 +585,11 @@ func stateBeginTop(s *scanner, c byte) int {
 // Only space characters should be seen now.
 func stateEndTop(s *scanner, c byte) int {
 	if !isSpace(c) {
-		// Complain about non-space byte on next call.
-		s.error(c, "after top-level value")
+		// support for multiple top-level values
+		if s.allowMultipleTopValues {
+			s.step = stateBeginTop
+			return scanContinue
+		}
 	}
 	return scanEnd
 }

@@ -336,6 +336,12 @@ func TestUnmarshalAsn1(t *testing.T) {
       fillFileContent : '00'H
     }
   }
+}
+value8 ProfileElement ::= usim : {
+  usim-header {
+    mandated NULL,
+    identification 8
+  }
 }`)
 
 	type ProfileElement struct {
