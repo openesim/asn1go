@@ -127,6 +127,9 @@ const (
 	scanObjectKey                    // just finished object key (string)
 	scanObjectValue                  // just finished non-last object value
 	scanEndObject                    // end object (implies scanObjectValue if possible)
+	scanBeginArray                   // begin array
+	scanArrayValue                   // just finished array value
+	scanEndArray                     // end array (implies scanArrayValue if possible)
 	scanSkipSpace                    // space byte; can skip; known to be last "continue" result
 	scanBeginType                    // begin type
 	scanEndType                      // end type(implies scanType if possible)
@@ -142,12 +145,12 @@ const (
 // being scanned. If the parser is inside a nested value
 // the parseState describes the nested state, outermost at entry 0.
 const (
-	parseObjectKey        = iota // parsing object key (before colon)
-	parseObjectValue             // parsing object value (after colon)
-	parseIdentifier              // parsing identifier
-	parseType                    // parsing type
-	parseValueName               // parsing value name
-	parseSequenceOfObject        // parsing sequence
+	parseObjectKey   = iota // parsing object key (before colon)
+	parseObjectValue        // parsing object value (after colon)
+	parseIdentifier         // parsing identifier
+	parseType               // parsing type
+	parseValueName          // parsing value name
+	parseArrayValue         // parsing array value
 )
 
 // This limits the max nesting depth to prevent stack overflow.
@@ -282,16 +285,6 @@ func stateEndValue(s *scanner, c byte) int {
 	}
 	ps := s.parseState[n-1]
 	switch ps {
-	case parseSequenceOfObject:
-		if c == '}' {
-			s.popParseState()
-			return scanEndObject
-		}
-		if isDigit(c) {
-			s.step = stateBeginValue
-			return scanBeginLiteral
-		}
-		return s.error(c, "after sequence of object")
 	case parseIdentifier:
 		s.popParseState()
 		if c == ':' {
@@ -326,7 +319,7 @@ func stateEndValue(s *scanner, c byte) int {
 	case parseObjectValue:
 		if c == ',' {
 			s.parseState[n-1] = parseObjectKey
-			s.step = stateBeginObjectKey
+			s.step = stateBeginObjectKeyOrEmpty
 			return scanObjectValue
 		}
 		if c == '}' {
@@ -334,6 +327,11 @@ func stateEndValue(s *scanner, c byte) int {
 			return scanEndObject
 		}
 		return s.error(c, "after object key:value pair")
+	case parseArrayValue:
+		if isDigit(c) {
+			s.step = stateBeginValue
+			return scanArrayValue
+		}
 	}
 	return s.error(c, "no idea what to do") // TODO: better error message
 }
@@ -435,9 +433,9 @@ func stateBeginObjectKey(s *scanner, c byte) int {
 		// we need to manipulate the parse state to get the correct result
 		//
 		n := len(s.parseState)
-		s.parseState[n-1] = parseSequenceOfObject
+		s.parseState[n-1] = parseArrayValue
 		s.step = stateBeginValue
-		return scanBeginLiteral
+		return scanArrayValue
 	}
 	return s.error(c, "looking for beginning of object key string")
 }
